@@ -5,9 +5,9 @@ import torch_dct as dct
 from models.common import Dwt2d, Iwt2d, DoubleConv, DWConv, MultiCrossAttention, DSConv
 
 
-# 自适应卷积核：通过学习输入特征图的动态调整卷积核的权重，使得模型能够更好地适应不同的输入数据。
-# 频率响应：通过使用离散余弦变换（DCT）和逆离散余弦变换（IDCT），模块可以在频率域中调整卷积核的响应，从而增强模型对特定频率特征的捕捉能力。
-# 增强特征表示：通过自适应调整卷积核，模型可以更有效地提取和表示输入特征图中的重要信息，从而可能提高下游任务的性能。
+# Adaptive convolution kernel: Dynamically adjusts the weights of the convolution kernel by learning the input feature maps, enabling the model to better adapt to different input data.
+# Frequency response: By using Discrete Cosine Transform (DCT) and Inverse Discrete Cosine Transform (IDCT), the module can adjust the convolution kernel's response in the frequency domain, enhancing the model's ability to capture specific frequency features.
+# Enhanced feature representation: By adaptively adjusting the convolution kernel, the model can more effectively extract and represent important information in the input feature maps, potentially improving the performance of downstream tasks.
 class OmniAttention(nn.Module):
     """
     For adaptive kernel, AdaKern
@@ -114,15 +114,15 @@ class AFRM(nn.Module):
     def __init__(self, in_dim, out_dim, use_dct=True, groups=1, kernel_size=3):
         super(AFRM, self).__init__()
 
-        # 1. 多尺度特征提取分支
+        # 1. Multi-scale feature extraction branch
         self.pool_h = nn.AdaptiveAvgPool2d((1, None))
         self.pool_w = nn.AdaptiveAvgPool2d((None, 1))
 
-        # 多尺度卷积核
+        # Multi-scale convolution kernels
         self.conv_s1 = nn.Conv2d(in_dim, in_dim // 2, kernel_size=3, padding=1, groups=groups)
         self.conv_s2 = nn.Conv2d(in_dim, in_dim // 2, kernel_size=5, padding=2, groups=groups)
 
-        # 通道调整
+        # Channel adjustment
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_dim, in_dim // 2, kernel_size=1),
             # nn.BatchNorm2d(in_dim // 2),
@@ -142,13 +142,13 @@ class AFRM(nn.Module):
         self.DSConv = DSConv(in_dim, out_dim, kernel_size=7, extend_scope=1, morph=0,
                  if_offset=True, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
 
-        # 2. 频率处理分支
-        # 缩放因子 (Scaled f)
-        self.scale_factors = [1.0, 2.0, 3.0, 4.0]  # 对应 V1-V4
+        # 2. Frequency processing branch
+        # Scaling factor (Scaled f)
+        self.scale_factors = [1.0, 2.0, 3.0, 4.0]  # Corresponding to V1-V4
 
         self.dwt = Dwt2d()
         self.iwt = Iwt2d()
-        # 定义可学习权重 (c_out, c_in, k, k)
+        # Define learnable weights (c_out, c_in, k, k)
         self.weight = nn.Parameter(torch.Tensor(in_dim, in_dim// groups, kernel_size, kernel_size))
         self.ratio = nn.Parameter(torch.tensor(0.5))
 
@@ -169,8 +169,8 @@ class AFRM(nn.Module):
     def adaptive_freq_conv(self, x):
         b, c, h, w = x.shape
 
-        c_att1, f_att1, _, _, = self.OMNI_ATT1(x)  # 获取通道和滤波器注意力
-        c_att2, f_att2, spatial_att2, _, = self.OMNI_ATT2(x)  # 获取空间注意力
+        c_att1, f_att1, _, _, = self.OMNI_ATT1(x)  # Get channel and filter attention
+        c_att2, f_att2, spatial_att2, _, = self.OMNI_ATT2(x)  # Get spatial attention
 
         adaptive_weight = self.weight.unsqueeze(0).repeat(b, 1, 1, 1, 1)  # b, c_out, c_in, k, k
         adaptive_weight_mean = adaptive_weight.mean(dim=(-1, -2), keepdim=True)
@@ -196,10 +196,10 @@ class AFRM(nn.Module):
 
     # c -> 2c
     def forward(self, x):
-        """ 自适应频率权重的卷积 """
+        """ Adaptive frequency-weighted convolution """
         b, c_in, h, w = x.shape
 
-        # # 多尺度
+        # # Multi-scale
         # feat_h = self.pool_h(x)
         # feat_w = self.pool_w(x)
         #
@@ -212,11 +212,11 @@ class AFRM(nn.Module):
         # x = torch.cat([feat_s, feat_hw], dim=1)
         # x = feat_s * feat_hw
 
-        # DWT分解
-        LL, LH, HL, HH = self.dwt(x)  # 各分量形状[b, c_in * 4, h//2, w//2]
+        # DWT decomposition
+        LL, LH, HL, HH = self.dwt(x)  # Each component shape [b, c_in * 4, h//2, w//2]
         adaptive_weight = self.adaptive_freq_conv(x)  # [b*out_c, in_c, k, k]
 
-        # 动态卷积核调整
+        # Dynamic convolution kernel adjustment
         weight = adaptive_weight.view(b * self.out_channels * self.in_channels, 1,
                                       self.kernel_size, self.kernel_size)
 
@@ -234,7 +234,7 @@ class AFRM(nn.Module):
 
         # LL = self.conv(proc[0])
         # LL_comp = self.conv(torch.cat([LL, LH, HL], dim=1))
-        # 逆变换重构
+        # Inverse transform reconstruction
         out = self.iwt(torch.cat([LL, LH, HL, proc[0]], dim=1)) + x
 
         out_skip = self.DSConv(out)
