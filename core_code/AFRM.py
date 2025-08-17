@@ -242,27 +242,3 @@ class AFRM(nn.Module):
         # out = self.proj(out).permute(0, 3, 1, 2) + out_skip
 
         return out_skip
-
-
-# 测试 AFRM
-if __name__ == "__main__":
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # 参数设置
-    in_dim = 24    # 输入通道数
-    out_dim = 48  # 输出通道数
-    kernel_size = 3
-    batch_size = 2
-    height, width = 160, 160
-
-    # 初始化 AFRM 模块
-    afrm = AFRM(in_dim=in_dim, out_dim=out_dim, use_dct=True, groups=1, kernel_size=kernel_size).to(device)
-
-    # 生成随机输入数据 (batch_size, in_dim, height, width)
-    x = torch.randn(batch_size, in_dim, height, width).to(device)
-
-    # 前向传播
-    out = afrm(x)  # 输出动态生成的卷积核权重
-
-    # 打印结果形状
-    print("输入形状:", x.shape)
-    print("输出形状:", out.shape)
