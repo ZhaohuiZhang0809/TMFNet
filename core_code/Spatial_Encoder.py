@@ -19,20 +19,20 @@ from models.DynamicMasking import DynamicMasking
 
 
 # class FreqConvModule(nn.Module):
-#     """ 频域卷积模块 """
+#     "" Frequency domain convolution module """
 #     def __init__(self, in_channels, out_channels):
 #         super(FreqConvModule, self).__init__()
 #         self.in_channels = in_channels
 #         self.out_channels = out_channels
 #
-#         # 1x1卷积层
+#         # 1x1 convolution layer
 #         self.conv1 = nn.Conv2d(in_channels, out_channels // 2, kernel_size=1)
 #         self.relu = nn.ReLU(inplace=True)
 #         self.conv2 = nn.Conv2d(out_channels // 2, out_channels, kernel_size=1)
 #
 #     def forward(self, x):
-#         # 将输入张量转换到频域
-#         x_fft = torch.fft.fft2(x, dim=(2, 3))  # 对输入张量进行二维傅里叶变换
+#         # Transform the input tensor to the frequency domain
+#         x_fft = torch.fft.fft2(x, dim=(2, 3))  # Perform 2D Fourier transform on the input tensor
 #         x_fft = self.conv1(x_fft.real)
 #         x_fft = self.relu(x_fft.real)
 #         x_fft = self.conv2(x_fft.real)
@@ -40,7 +40,7 @@ from models.DynamicMasking import DynamicMasking
 #
 #         return x_ifft
 
-# # 定义全局卷积模块
+# # Define global convolution module
 # class GlobalConvModule(nn.Module):
 #     def __init__(self, in_dim, out_dim, kernel_size):
 #         super(GlobalConvModule, self).__init__()
@@ -64,87 +64,84 @@ from models.DynamicMasking import DynamicMasking
 #         return x
 
 
-# # 稀疏通道注意力
+# # Sparse channel attention
 # class SparseChannelAttention(nn.Module):
 #     def __init__(self, channel, reduction_ratio=16, k_ratio=0.5):
 #         """
 #         Args:
-#             channel (int): 输入通道数
-#             reduction_ratio (int): 中间层压缩比例（默认16）
-#             k_ratio (float): 稀疏比例，选择Top-K通道的比例（0 < k_ratio <= 1）
+#             channel (int): Number of input channels
+#             reduction_ratio (int): Intermediate layer compression ratio (default 16)
+#             k_ratio (float): Sparse ratio, the proportion of top-K channels to select (0 < k_ratio <=1)
 #         """
 #         super(SparseChannelAttention, self).__init__()
 #         self.channel = channel
-#         self.k = max(1, int(channel * k_ratio))  # 至少保留1个通道
+#         self.k = max(1, int(channel * k_ratio))  # At least keep 1 channel
 #         self.reduction_ratio = reduction_ratio
 #
-#         # 全局平均池化
-#         self.gap = nn.AdaptiveAvgPool2d((1, 1))
+#         # Global average pooling
+#         self.gap = nn.AdaptiveAvgPool2d(1, 1)
 #
-#         # 中间层（全连接 + ReLU）
+#         # Intermediate layer (fully connected + ReLU)
 #         self.mlp = nn.Sequential(
 #             nn.Linear(channel, channel // reduction_ratio),
 #             nn.ReLU(inplace=True),
-#             nn.Linear(channel // reduction_ratio, channel)  # 输出通道重要性得分
+#             nn.Linear(channel // reduction_ratio, channel)  # Output channel importance scores
 #         )
 #
-#         # 全局可学习参数（用于增强未被选中的通道）
+#         # Global learnable parameters (to enhance unselected channels)
 #         self.global_weight = nn.Parameter(torch.ones(1, channel, 1, 1))
 #         self.global_bias = nn.Parameter(torch.zeros(1, channel, 1, 1))
 #
 #     def forward(self, x):
 #         b, c, h, w = x.shape
 #
-#         # 1. 计算通道重要性得分
+#         # 1. Calculate channel importance scores
 #         scores = self.gap(x).view(b, c)  # [B, C]
 #         scores = self.mlp(scores)        # [B, C]
 #
-#         # 2. 生成稀疏掩码（Top-K选择）
+#         # 2. Create sparse mask (Top-K selection)
 #         _, topk_indices = torch.topk(scores, self.k, dim=1)  # [B, K]
 #         sparse_mask = torch.zeros_like(scores)               # [B, C]
-#         sparse_mask.scatter_(1, topk_indices, 1.0)           # 仅Top-K位置为1
+#         sparse_mask.scatter_(1, topk_indices, 1.0)           # Only top-K positions are 1
 #
-#         # 3. 计算注意力权重（仅对Top-K通道）
+#         # 3. Calculate attention weights (only for top-K channels)
 #         attention = torch.sigmoid(scores) * sparse_mask      # [B, C]
 #
-#         # 4. 应用注意力权重 + 全局参数
+#         # 4. Apply attention weights + global parameters
 #         attention = attention.view(b, c, 1, 1)               # [B, C, 1, 1]
 #         out = x * ((attention * self.global_bias + 1) * self.global_weight)
-#         # out = x * attention
-#
 #         return out
-
 
 
 # support: v0, v0seq
 class SS2Dv0:
-    def __initv0__(
+    def __init__(
             self,
-            # basic dims ===========
+            # basic dims ============
             d_model=96,
             topk=4,
             mlp_ratio=4.0,
             d_state=16,
             ssm_ratio=2.0,
             dt_rank="auto",
-            # ======================
+            # ======================#
             dropout=0.0,
-            # ======================
+            # ======================#
             seq=False,
             force_fp32=True,
             windows_size=3,
             depth=1,
             **kwargs,
     ):
-        r""" V-Mamba-v0 框架
+        """ V-Mamba-v0 framework
         Arg:
-            d_model: 模型的输出维度（默认为96）。
-            d_state: 状态维度（默认为16）。
-            ssm_ratio: 状态维度与模型维度的比率（默认为2.0）。
-            dt_rank: 动态时间参数的维度，默认为“auto”，会根据 d_model 计算
+            d_model: Output dimension of the model (default 9).
+            d_state: State dimension (default 16).
+            ssm_ratio: Ratio of state dimension to model dimension (default 2.0).
+            dt_rank: Dimension of dynamic parameters, default "auto", calculated based on d_model
         """
 
-        # 空间维度优先
+        # Spatial dimension first
         # if "channel_first" in kwargs:
         #     assert not kwargs["channel_first"]
         act_layer = nn.SiLU
@@ -157,7 +154,7 @@ class SS2Dv0:
         bias = False
         conv_bias = True
         d_conv = 7
-        k_group = 2     # 扫描方向
+        k_group = 2     # Scan direction
         num_heads = 8
         dilation = [1, 2, 3]
 
@@ -179,14 +176,14 @@ class SS2Dv0:
         if not force_fp32:
             self.forward = partial(self.forwardv0, force_fp32=False)
 
-        # self.selective_scan = selective_scan_fn  # 选择性扫描（加速）
+        # self.selective_scan = selective_scan_fn  # Selective scan (acceleration)
 
         # in proj ============================
         self.in_proj = nn.Linear(d_model, d_inner * 2, bias=bias)
         # self.in_proj = nn.Conv2d(d_model, d_inner * 2, kernel_size=3, padding=1)
 
 
-        self.act: nn.Module = act_layer()
+        self.act: nn.Module = act_layer
         self.conv2d = nn.Conv2d(
             in_channels=d_inner,
             out_channels=d_inner,
@@ -216,20 +213,20 @@ class SS2Dv0:
         # mask
         self.DynamicMasking = DynamicMasking(window_size=windows_size, top_k=top_k)
 
-        self.average_pool = nn.AdaptiveAvgPool1d(1)
+        self.average_pool = nn.AdaptiveAvgPool1d(1, 1)
 
         # batch, length, force_fp32, seq, k_group, inner, rank
         self.mambaScanner = MambaScanner(seq=seq, force_fp32=force_fp32, init_dt_A_D=init_dt_A_D, x_proj_weight=self.x_proj_weight)
 
         # # Mutil-conv
-        # # self.GConv = GlobalConvModule(in_dim=d_model, out_dim=d_model, kernel_size=(7, 7))
+        # self.GConv = GlobalConvModule(in_dim=d_model, out_dim=d_model, kernel_size=(7, 7))
         # self.LocalConv = DWConv(d_model, d_model)
         # self.FreqConv = FreqConvModule(in_channels=d_model, out_channels=d_model)
         #
         # # Sparse Channel Attention
         # self.SCA = SparseChannelAttention(d_model)
 
-        # out proj =======================================
+        # out proj ========================================
         self.out_norm = nn.LayerNorm(d_inner)
         # self.out_norm = nn.BatchNorm2d(d_inner)
         self.out_proj = nn.Linear(d_inner, d_model, bias=bias)
@@ -244,10 +241,10 @@ class SS2Dv0:
                 padding=(d * (windows_size - 1) + 1) // 2,
                 stride=1
             ) for d in dilation
-        ])  # 会为生成均等划分的膨胀窗口, (B, C, H, W) -> (B, C*window_size*window_size, n)
+        ])  #  will generate equally divided dilated windows, (B, C, H, W) -> (B, C*window_size*window_size, n)
 
         # # channel transfer
-        # self.gap = nn.AdaptiveAvgPool2d((1, 1))
+        # self.gap = nn.AdaptiveAvgPool2d(1, 1)
         #
         # self.fc = nn.Sequential(
         #     nn.Linear(d_model, d_model // int(mlp_ratio), bias=False),
@@ -282,41 +279,41 @@ class SS2Dv0:
         B, D, H, W = x.shape
         # L = H * W
 
-        """ 根据激活值划分 """
-        active_feat, passive_feat, only_active_feat, only_passive_feat = self.DynamicMasking(x) # (B, C, H, W), ~ ; (B, C, nW*window_size*window_size), ~
+        """ Partition based on activation values """
+        active_feat, passive_feat, only_active_feat, only_passive_feat = self.DynamicMasking(x) # (B, C, H, W), ~; (B, C, nW*window_size*window_size)
 
-        """ local遍历路径 """
-        '''前景SSM -> 前景类别特征'''
+        """ Local traversal path """
+        '''SSM -> Foreground class feature '''
         # partition
         xs_fore = only_active_feat.unsqueeze(dim=1)
-        # 拼接 x_s 和 其翻转
-        xs_fore = torch.cat([xs_fore, torch.flip(xs_fore, dims=[-1])], dim=1)  # # (B, 2, C, nW*window_size*window_size)
-        # 选择性扫描
+        # concatenate x_s and its flip
+        xs_fore = torch.cat([xs_fore, torch.flip(xs_fore, dims=[-1])], dim=1)  # (B, 2, C, nW*window_size*window_size)
+        # selective scan
         out = self.mambaScanner(xs_fore)
-        # """ 两种遍历路径叠加 (Mamba之后) """
-        # token位置还原
-        inv_1 = torch.flip(out[:, 1:2], dims=[-1])
-        # 两种状态叠加, 添加 投影权重
+        # """ Combine two traversal paths (after Mamba) """
+        # token position restoration
+        inv_1 = torch.flip(out[:,1:2], dims=[-1])
+        # combine two states, add projection weights
         y1 = inv_1[:, 0] + out[:, 0]   # (B, C, nW*window_size*window_size)
         # foreground_class = self.average_pool(y1) # (B, C, 1)
 
-        # 还原形状，方便输出
-        y1 = y1.transpose(dim0=1, dim1=2).contiguous()
+        # restore shape for output
+        y1 = y1.transpose(dim0=1, dim=2).contiguous()
 
-        '''前景多尺度卷积'''
+        '''Foreground multi-scale convolution'''
         # Local_feature = self.LocalConv(active_feat)
         # Freq_feature = self.FreqConv(active_feat)
 
-        # # 多尺度前景聚合注意力
-        SSM_Q, SSM_K = rearrange(self.kv(y1),"b (n2 ws) (h_n h_dim) -> h_n b h_dim ws n2", ws=self.windows_size ** 2, h_n=self.num_dilation).unsqueeze(-1).chunk(
-                                    2, dim=2)  # (B, N2*window_size*window_size, C) -> (h_n, B, h_dim, window_size*window_size, N2, 1)
+        # # Multi-scale foreground aggregation attention
+        SSM_Q, SSM_K = rearrange(self.kv(y1),"b (n2 ws) (h_n h_dim) -> h_n b h_dim ws2", ws=self.windows_size ** 2).unsqueeze(-1).chunk(
+                                    2, dim=2)  # (B, N2*window_size*window_size, C) -> (h_n, B, h_dim, window_size*window_size, N2,1)
 
         x = x.reshape(B, self.num_dilation, D // self.num_dilation, H, W).permute(1, 0, 2, 3, 4)
 
         y_list = []
         for i in range(self.num_dilation):
             Win_V = self.unfold[i](x[i])
-            Win_V = rearrange(Win_V, 'b (h_dim ws) n1 -> b h_dim n1 ws', h_dim=D // self.num_dilation)  # (B, h_dim, N1, window_size*window_size); N1 = L
+            Win_V = rearrange(Win_V, 'b (h_dim ws) n1 -> b h_dim n1 ws', h_dim=D // self.num_dilation)  # (B, h_dim, N1, window_size*window_size)
 
             A_M = SSM_Q[i].transpose(-1, -2) @ SSM_K[i] / math.sqrt(D // self.num_dilation)  # (B, h_dim, window_size*window_size, 1)
             A_M = F.softmax(A_M, dim=-1).squeeze(-1)
@@ -330,44 +327,76 @@ class SS2Dv0:
         # fore_sim = self.batch_cosine_similarity(foreground_class, y.view(B, D, H * W)).view(B, -1, H, W)
 
         # foreground = active_feat * torch.sigmoid(Local_feature + Freq_feature) * fore_sim
-        # y = y * fore_sim
 
-        # '''背景稀疏通道注意力'''
-        # background_att = self.SCA(passive_feat)
-        # back_sim = self.batch_cosine_similarity(background_class, background_att.view(B, D, H * W)).view(B, -1, H, W)
-        # background = passive_feat * back_sim
-
-        # # y = torch.cat((foreground, background), dim=1)
-        # y = foreground + background
-
-        '''背景SSM -> 背景类别特征'''
+        # '''Background SSM -> Background class feature'''
         # # partition
         # xs_back = only_passive_feat.unsqueeze(dim=1)
-        # # 拼接 x_s 和 其翻转
-        # xs_back = torch.cat([xs_back, torch.flip(xs_back, dims=[-1])], dim=1)  # # (B, 2, C, nW*window_size*window_size)
-        # # 选择性扫描
+        # # concatenate x_s and its flip
+        # xs_back = torch.cat([xs_back, torch.flip(xs_back, dims=[-1])], dim=1)  # (B, 2, C, nW*window_size*window_size)
+        # # selective scan
         # out_2 = self.mambaScanner(xs_back)
-        # # """ 两种遍历路径叠加 (Mamba之后) """
-        # # token位置还原
+        # # """ Combine two traversal paths (after Mamba) """
+        # # token position restoration
         # inv_2 = torch.flip(out_2[:, 1:2], dims=[-1])
-        # # 两种状态叠加, 添加 投影权重
+        # # combine two states, add projection weights
         # y2 = inv_2[:, 0] + out_2[:, 0]      # (B, C, nW*window_size*window_size)
-        # background_class = self.average_pool(y2) # (B, C, 1)
+        background_class = self.average_pool(y2) # (B, C, 1)
 
-        # 正则输出
-        y = self.out_norm(y).view(B, H, W, -1)
-        # z是一个门控（SiLU激活分支）
-        # y = torch.cat([y, z], dim=1)
-        y = y + z
-        out = self.dropout(self.out_proj(y))
+        # # SSM
+        # self.GConv = GlobalConvModule(in_dim=d_model, out_dim=d_model, kernel_size=(7, 7))
+        # self.LocalConv = DWConv(d_model, d_model)
+        # self.FreqConv = FreqConvModule(in_channels=d_model, out_channels=d_model)
+        #
+        # # Sparse Channel Attention
+        # self.SCA = SparseChannelAttention(d_model)
 
-        return out
+        # out proj ========================================
+        self.out_norm = nn.LayerNorm(d_inner)
+        # self.out_norm = nn.BatchNorm2d(d_inner)
+        self.out_proj = nn.Linear(d_inner, d_model, bias=bias)
+        # self.out_proj = nn.Conv2d(d_inner, d_model, 3, padding=1)
+        self.dropout = nn.Dropout(dropout) if dropout > 0. else nn.Identity()
+
+        # partition windows
+        self.unfold = nn.ModuleList([
+            nn.Unfold(
+                kernel_size=windows_size,
+                dilation=d,
+                padding=(d * (windows_size - 1) + 1) // 2,
+                stride=1
+            ) for d in dilation
+        ])  #  will generate equally divided dilated windows, (B, C, H, W) -> (B, C*window_size*window_size, n)
+
+        # # channel transfer
+        # self.gap = nn.AdaptiveAvgPool2d(1, 1)
+        #
+        # self.fc = nn.Sequential(
+        #     nn.Linear(d_model, d_model // int(mlp_ratio), bias=False),
+        #     nn.ReLU(),
+        #     nn.Linear(d_model // int(mlp_ratio), d_model, bias=False),
+        #     nn.Sigmoid()
+        # )
+
+    # def forward(self, x: torch.Tensor):
+    #     x = self.patch_embed(x)
+    #     x = rearrange(x, 'b c h w -> b h w c')
+    #     if self.pos_embed is not None:
+    #         pos_embed = self.pos_embed.permute(0, 2, 3, 1) if self.channel_first else self.pos_embed
+    #         x = x + pos_embed
+    #     ''' Stack modules '''
+    #     x_list = []
+    #     for layer in self.layers:
+    #         x_list.append(rearrange(x, 'b h w c -> b c h w'))
+    #         x = layer(x)
+
+    #     x = rearrange(x, 'b h w c -> b c h w')
+    #     return x, x_list
 
 
 class SS2D(nn.Module, SS2Dv0):
     def __init__(
             self,
-            # basic dims ===========
+            # basic dims ============
             d_model=96,
             windows_size=2,
             d_state=16,
@@ -375,43 +404,43 @@ class SS2D(nn.Module, SS2Dv0):
             dt_rank="auto",
             act_layer=nn.SiLU,
             mlp_ratio=4.0,
-            # dwconv ===============
+            # ======================#
             d_conv=3,  # < 2 means no conv
             conv_bias=True,
-            # ======================
+            # ======================#
             dropout=0.0,
             bias=False,
-            # dt init ==============
+            # ======================#
             dt_min=0.001,
             dt_max=0.1,
             dt_init="random",
             dt_scale=1.0,
             dt_init_floor=1e-4,
             initialize="v0",
-            # ======================
+            # ======================#
             forward_type="v2",
             channel_first=False,
             depth=1,
-            # ======================
+            # ======================#
             **kwargs,
     ):
-        r""" 初始化 SS2D
+        """ Initialize SS2D
         Arg:
-            d_model, d_state: 模型的维度和状态维度，影响特征表示的大小
-            ssm_ratio: 状态空间模型的比例，可能影响模型的复杂度
-            dt_rank: 时间步长的秩，控制时间序列的处理方式
-            act_layer: 激活函数，默认为 SiLU（Sigmoid Linear Unit）
-            d_conv: 卷积层的维度，值小于 2 时表示不使用卷积
-            conv_bias: 是否使用卷积偏置项
-            dropout: dropout 概率，用于防止过拟合
-            bias: 是否在模型中使用偏置项
-            dt_min, dt_max: 时间步长的最小和最大值
-            dt_init: 时间步长的初始化方式，可以为 "random" 等
-            dt_scale, dt_init_floor: 影响时间步长的缩放和下限
-            initialize: 指定初始化方法
-            forward_type: 决定前向传播的实现方式，支持多种类型
-            channel_first: 指示是否使用通道优先的格式
-            **kwargs: 允许传递额外参数，方便扩展
+            d_model, d_state: Model dimension and state dimension, affecting feature representation size
+            ssm_ratio: Ratio of state space model, may affect model complexity
+            dt_rank: Dimension of dynamic parameters, controls how time sequences are processed
+            act_layer: Activation function for SSM, default SiLU (Sigmoid Linear Unit)
+            d_conv: Convolution layer dimension, value less than 2 means no convolution
+            conv_bias: Whether to use convolution bias
+            dropout: Dropout probability to prevent overfitting
+            bias: Whether to use bias in the model
+            dt_min, dt_max: Minimum and maximum values of time steps
+            dt_init: Initialization method for time steps, can be "random", etc.
+            dt_scale, dt_init_floor: Affect time step scaling and lower limit
+            initialize: Specify initialization method
+            forward_type: Decides the implementation of forward propagation, supports multiple types
+            channel_first: Indicates whether to use channel-first format
+            **kwargs: Allows passing additional parameters for easy extension
         """
         nn.Module.__init__(self)
         kwargs.update(
@@ -421,14 +450,14 @@ class SS2D(nn.Module, SS2Dv0):
             initialize=initialize, forward_type=forward_type, channel_first=channel_first, depth=depth
         )
 
-        # 调用不同的初始化函数
+        # Call different initialization functions
         if forward_type in ["v0", "v0seq"]:
             self.__initv0__(seq=("seq" in forward_type), **kwargs)
         # else:
         #     self.__initv1__(**kwargs)
 
 
-# =====================================================
+# =====================================
 class VSSBlock(nn.Module):
     def __init__(
             self,
@@ -438,7 +467,7 @@ class VSSBlock(nn.Module):
             norm_layer: nn.Module = nn.LayerNorm,
             channel_first=False,
             # =============================
-            ssm_d_state: int = 16,
+            m_d_state: int = 16,
             ssm_ratio=2.0,
             ssm_dt_rank: Any = "auto",
             ssm_act_layer=nn.SiLU,
@@ -460,32 +489,32 @@ class VSSBlock(nn.Module):
             depth=1,
             **kwargs,
     ):
-        r""" VMamba整体架构
+        r""" VMamba overall architecture
         Arg:
-            维度变换参数:
-                hidden_dim: 输入和输出的特征维度
-                drop_path: 用于随机丢弃路径的概率，防止过拟合
-                norm_layer: 归一化层，默认为 LayerNorm
-                channel_first: 数据格式，指示是否采用通道优先
-            SSM相关参数:
-                ssm_d_state: 状态空间模型的状态维度
-                ssm_ratio: 决定是否使用 SSM 的比例
-                ssm_dt_rank: 时间步长的秩
-                ssm_act_layer: SSM 的激活函数，默认为 SiLU
-                ssm_conv: 卷积层的大小
-                ssm_conv_bias: 是否使用卷积偏置
-                ssm_drop_rate: SSM 中的 dropout 概率
-                ssm_init: SSM 的初始化方式
-                forward_type: 决定前向传播的实现方式
-            MLP相关参数:
-                mlp_ratio: MLP 隐藏层与输入层的维度比率
-                mlp_act_layer: MLP 的激活函数，默认为 GELU
-                mlp_drop_rate: MLP 中的 dropout 概率
-                gmlp: 是否使用 GMLP 结构
-            其他参数:
-                use_checkpoint: 是否使用梯度检查点以节省内存
-                post_norm: 是否在添加残差连接后进行归一化
-                _SS2D: 状态空间模型的类类型
+            Dimension transformation parameters:
+                hidden_dim: Input and output feature dimension
+                drop_path: Probability for random path dropping to prevent overfitting
+                norm_layer: Normalization layer, default LayerNorm
+                channel_first: Data format, indicates whether to use channel-first
+            SSM related parameters:
+                ssm_d_state: State dimension of state space model
+                ssm_ratio: Determines whether to use SSM
+                ssm_dt_rank: Dimension of dynamic parameters
+                ssm_act_layer: Activation function for SSM, default SiLU
+                ssm_conv: Convolution layer size
+                ssm_conv_bias: Whether to use convolution bias
+                ssm_drop_rate: Dropout probability in SSM
+                ssm_init: Initialization method for SSM
+                forward_type: Decides the implementation of forward propagation
+            MLP related parameters:
+                mlp_ratio: Hidden layer to input layer dimension ratio
+                mlp_act_layer: Activation function for MLP, default GELU
+                mlp_drop_rate: Dropout probability in MLP
+                gmlp: Whether to use GMLP structure
+            Other parameters:
+                use_checkpoint: Whether to use gradient checkpointing to save memory
+                post_norm: Whether to normalize after adding residual connection
+                _SS2D: Type of state space model class
         """
 
         super().__init__()
@@ -494,35 +523,28 @@ class VSSBlock(nn.Module):
         self.use_checkpoint = use_checkpoint
         self.post_norm = post_norm
 
-        ''' SSM模块, 初始化设置为 V0 版本 '''
+        ''' SSM module, initialized to V0 version '''
         if self.ssm_branch:
             self.norm = norm_layer(hidden_dim)
             self.op = _SS2D(
                 d_model=hidden_dim,
                 windows_size=windows_size,
-                d_state=ssm_d_state,
+                d_state=m_d_state,
                 ssm_ratio=ssm_ratio,
                 dt_rank=ssm_dt_rank,
                 act_layer=ssm_act_layer,
                 mlp_ratio=mlp_ratio,
-                # ==========================
+                # ==================================
                 d_conv=ssm_conv,
                 conv_bias=ssm_conv_bias,
-                # ==========================
+                # ==================================
                 dropout=ssm_drop_rate,
                 # bias=False,
-                # ==========================
-                # dt_min=0.001,
-                # dt_max=0.1,
-                # dt_init="random",
-                # dt_scale="random",
-                # dt_init_floor=1e-4,
-                initialize=ssm_init,
-                # ==========================
+                # ==================================
                 forward_type=forward_type,
                 channel_first=channel_first,
-                depth = depth
-            )
+                depth = depth,
+            ))
 
         self.drop_path = DropPath(drop_path)
 
@@ -555,9 +577,9 @@ class VSSBlock(nn.Module):
             return self._forward(input)
 
 
-# 主函数
+# Main function
 class SCA_SSM(nn.Module):
-    """Spatial Context-Aware State Space Module """
+    """ Spatial Context-Aware State Space Module """
     def __init__(
             self,
             patch_size=4,
@@ -620,7 +642,7 @@ class SCA_SSM(nn.Module):
             sigmoid=nn.Sigmoid,
         )
 
-        ##
+        #
         norm_layer: nn.Module = _NORMLAYERS.get(norm_layer.lower(), None)
         ssm_act_layer: nn.Module = _ACTLAYERS.get(ssm_act_layer.lower(), None)
         mlp_act_layer: nn.Module = _ACTLAYERS.get(mlp_act_layer.lower(), None)
@@ -630,14 +652,297 @@ class SCA_SSM(nn.Module):
         _make_patch_embed = dict(
             v1=self._make_patch_embed,
             v2=self._make_patch_embed_v2,
-        ).get(patchembed_version, None)  # 根据patchembed版本选择嵌入化函数
+        ).get(patchembed_version, None)  # Choose embedding function based on patchembed version
         self.patch_embed = _make_patch_embed(in_chans, dims[0], patch_size, patch_norm, norm_layer,
                                              channel_first=self.channel_first)
 
         _make_downsample = dict(
             v1=PatchMerging2D,
-            v2=self._make_downsample,
+            v2=self._make_down_sample,
             v3=self._make_downsample_v3,
+            none=(lambda *_, **_k: None),
+        ).get(downsample_version, None)
+
+        self.layers = nn.ModuleList()
+        for i_layer in range(self.num_layers):
+            downsample = _make_downsample(
+                self.dims[i_layer],
+                self.dims[i_layer + 1],
+                norm_layer=norm_layer,
+                channel_first=self.channel_first,
+            ) if (i_layer < self.num_layers - 1) else nn.Identity()
+
+            self.layers.append(self._make_layer(
+                dim=self.dims[i_layer],
+                windows_size=windows_size,
+                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1)]),
+                use_checkpoint=use_checkpoint,
+                norm_layer=norm_layer,
+                downsample=downsample,                  # Three versions of downsampling
+                channel_first=self.channel_first,
+                # =========================
+                ssm_d_state=ssm_d_state,
+                ssm_ratio=ssm_ratio,
+                ssm_dt_rank=ssm_dt_rank,
+                ssm_act_layer=ssm_act_layer,
+                ssm_conv=ssm_conv,
+                ssm_conv_bias=ssm_conv_bias,
+                ssm_drop_rate=ssm_drop_rate,
+                ssm_init=ssm_init,
+                forward_type=forward_type,
+                # =========================
+                mlp_ratio=mlp_ratio,
+                mlp_act_layer=mlp_act_layer,
+                mlp_drop_rate=mlp_drop_rate,
+                gmlp=gmlp,
+                # =========================
+                _SS2D=_SS2D,
+                depth = depth[i_layer],
+            ))
+
+        # self.classifier = nn.Sequential(OrderedDict(
+        #     norm=norm_layer(self.num_features),  # B,H,W,C
+        #     permute=Permute(0, 3, 1, 2) if not self.channel_first else nn.Identity(),
+        #     avgpool=nn.AdaptiveAvgPool2d(1),
+        #     flatten=nn.Flatten(1),
+        #     head=nn.Linear(self.num_features, num_classes),
+        # ))
+
+        self.apply(self._init_weights)
+
+    @staticmethod
+    def _pos_embed(embed_dims, patch_size, img_size):
+        patch_height, patch_width = (img_size // patch_size, img_size // patch_size)
+        pos_embed = nn.Parameter(torch.zeros(1, embed_dims, patch_height, patch_width))
+        trunc_normal_(pos_embed, std=0.02)
+        return pos_embed
+
+    def _init_weights(self, m: nn.Module):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=0.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    # used in building optimizer
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        return {"pos_embed"}
+
+    @torch.jit.ignore
+    def no_weight_decay_keywords(self):
+        return {}
+
+    @staticmethod
+    def _make_patch_embed(in_chans=3, embed_dim=96, patch_size=4, patch_norm=True, norm_layer=nn.LayerNorm,
+                      channel_first=False):
+        # if channel first, then Norm and Output are both channel_first
+        return nn.Sequential(
+            nn.Conv2d(in_chans, embed_dim, kernel_size=1),
+            (nn.Identity() if channel_first else Permute(0, 2, 3, 1)),
+            (norm_layer(embed_dim) if patch_norm else nn.Identity()),
+        )
+
+    @staticmethod
+    def _make_patch_embed_v2(in_chans=3, embed_dim=96, patch_size=4, patch_norm=True, norm_layer=nn.LayerNorm,
+                      channel_first=False):
+        # if channel first, then Norm and Output are both channel_first
+        stride = patch_size // 2
+        kernel_size = stride + 1
+        padding = 1
+        return nn.Sequential(
+            nn.Conv2d(in_chans, embed_dim // 2, kernel_size=kernel_size, stride=stride, padding=padding),
+            (nn.Identity() if channel_first or (not patch_norm)) else Permute(0, 2, 3, 1)),
+            (norm_layer(embed_dim // 2) if patch_norm else nn.Identity()),
+            (nn.Identity() if channel_first or (not patch_norm)) else Permute(0, 3, 1, 2)),
+            nn.GELU(),
+            nn.Conv2d(embed_dim // 2, embed_dim, kernel_size=kernel_size, stride=stride, padding=padding),
+            (nn.Identity() if channel_first else Permute(0, 2, 3, 1)),
+            (norm_layer(embed_dim) if patch_norm else nn.Identity()),
+        )
+
+    @staticmethod
+    def _make_down_sample(dim=96, out_dim=192, norm_layer=nn.LayerNorm, channel_first=False):
+        # if channel first, then Norm and Output are both channel_first
+        return nn.Sequential(
+            (nn.Identity() if channel_first else Permute(0, 3, 1, 2)),
+            nn.Conv2d(dim, out_dim, kernel_size=2, stride=2),
+            (nn.Identity() if channel_first else Permute(0, 2, 3, 1)),
+            norm_layer(out_dim),
+        )
+
+    @staticmethod
+    def _make_down_sample_v3(dim=96, out_dim=192, norm_layer=nn.LayerNorm, channel_first=False):
+        # if channel first, then Norm and Output are both channel_first
+        return nn.Sequential(
+            (nn.Identity() if channel_first else Permute(0, 3, 1, 2)),
+            nn.Conv2d(dim, out_dim, kernel_size=3, stride=2, padding=1),
+            (nn.Identity() if channel_first else Permute(0, 2, 3, 1)),
+            norm_layer(out_dim),
+        )
+
+    @staticmethod
+    def _make_layer(
+            dim=96,
+            windows_size=2,
+            drop_path=[0.1, 0.1],
+            use_checkpoint=False,
+            norm_layer=nn.LayerNorm,
+            downsample=nn.Identity(),
+            channel_first=False,
+            # =========================
+            ssm_d_state=16,
+            ssm_ratio=2.0,
+            ssm_dt_rank="auto",
+            ssm_act_layer=nn.SiLU,
+            ssm_conv=3,
+            ssm_conv_bias=True,
+            ssm_drop_rate=0.0,
+            ssm_init="v0",
+            forward_type="v2",
+            # =========================
+            mlp_ratio=4.0,
+            mlp_act_layer=nn.GELU,
+            mlp_drop_rate=0.0,
+            gmlp=False,
+            # =========================
+            _SS2D=SS2D,
+            depth=1,
+            **kwargs,
+    ):
+        # if channel first, then Norm and Output are both channel_first
+        depth = len(drop_path)
+        blocks = []
+        for d in range(depth):
+            blocks.append(VSSBlock(
+                hidden_dim=dim,
+                windows_size=windows_size,
+                drop_path=drop_path[d],
+                norm_layer=norm_layer,
+                channel_first=channel_first,
+                ssm_d_state=ssm_d_state,
+                ssm_ratio=ssm_ratio,
+                ssm_dt_rank=ssm_dt_rank,
+                ssm_act_layer=ssm_act_layer,
+                ssm_conv=ssm_conv,
+                ssm_conv_bias=ssm_conv_bias,
+                ssm_drop_rate=ssm_drop_rate,
+                ssm_init=ssm_init,
+                forward_type='v0' if d % 2 == 0 and forward_type == ['v0', 'v1'] else ('v1' if forward_type == ['v0', 'v1'] else forward_type),
+                mlp_ratio=mlp_ratio,
+                mlp_act_layer=mlp_act_layer,
+                mlp_drop_rate=mlp_drop_rate,
+                gmlp=gmlp,
+                use_checkpoint=use_checkpoint,
+                _SS2D=_SS2D,
+                depth = depth,
+            ))
+
+        return nn.Sequential(OrderedDict(
+            blocks=nn.Sequential(*blocks, ),
+            downsample=downsample,
+        ))
+
+    def forward(self, x: torch.Tensor):
+        # x = self.patch_embed(x)
+        x = rearrange(x, 'b c h w -> b h w c')
+        if self.pos_embed is not None:
+            pos_embed = self.pos_embed.permute(0, 2, 3, 1) if self.channel_first else self.pos_embed
+            x = x + pos_embed
+        ''' Stack modules '''
+        x_list = []
+        for layer in self.layers:
+            x_list.append(rearrange(x, 'b h w c -> b c h w'))
+            x = layer(x)
+
+        x = rearrange(x, 'b h w c -> b c h w')
+        return x, x_list
+
+
+class SCA_SSM(nn.Module):
+    "" Spatial Context-Aware State Space Module """
+    def __init__(
+            self,
+            patch_size=4,
+            in_chans=3,
+            num_classes=1,
+            depths=[2, 2, 9, 2],
+            dims=[96, 192, 384, 768],
+            windows_size=2,
+            # =========================
+            ssm_d_state=16,
+            ssm_ratio=2.0,
+            ssm_dt_rank="auto",
+            ssm_act_layer="silu",
+            ssm_conv=3,
+            ssm_conv_bias=True,
+            ssm_drop_rate=0.0,
+            ssm_init="v0",
+            forward_type="v2",
+            # =========================
+            mlp_ratio=4.0,
+            mlp_act_layer="gelu",
+            mlp_drop_rate=0.0,
+            gmlp=False,
+            # =========================
+            drop_path_rate=0.1,
+            patch_norm=True,
+            norm_layer="LN",  # "BN", "LN2D"
+            downsample_version: str = "v2",  # "v1", "v2", "v3"
+            patchembed_version: str = "v1",  # "v1", "v2"
+            use_checkpoint=False,
+            # =========================
+            posembed=False,
+            imgsize=224,
+            _SS2D=SS2D,
+            # =========================
+            depth = [1, 1, 1],
+            **kwargs,
+    ):
+        super().__init__()
+        self.channel_first = (norm_layer.lower() in ["bn", "ln2d"])
+        self.num_classes = num_classes
+        self.num_layers = len(depths)
+        if isinstance(dims, int):
+            dims = [int(dims * 2 ** i_layer) for i_layer in range(self.num_layers)]
+        self.num_features = dims[-1]
+        self.dims = dims
+        self.input_resolution = [(10, 10), (20, 20), (40, 40), (80, 80)]
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+
+        _NORMLAYERS = dict(
+            ln=nn.LayerNorm,
+            ln2d=LayerNorm2d,
+            bn=nn.BatchNorm2d,
+        )
+
+        _ACTLAYERS = dict(
+            silu=nn.SiLU,
+            gelu=nn.GELU,
+            relu=nn.ReLU,
+            sigmoid=nn.Sigmoid,
+        )
+
+        #
+        norm_layer: nn.Module = _NORMLAYERS.get(norm_layer.lower(), None)
+        ssm_act_layer: nn.Module = _ACTLAYERS.get(ssm_act_layer.lower(), None)
+        mlp_act_layer: nn.Module = _ACTLAYERS.get(mlp_act_layer.lower(), None)
+
+        self.pos_embed = self._pos_embed(dims[0], patch_size, imgsize) if posembed else None
+
+        _make_patch_embed = dict(
+            v1=self._make_patch_embed,
+            v2=self._make_patch_embed_v2,
+        ).get(patchembed_version, None)  # Choose embedding function based on patchembed version
+        self.patch_embed = _make_patch_embed(in_chans, dims[0], patch_size, patch_norm, norm_layer,
+                                             channel_first=self.channel_first)
+
+        _make_downsample = dict(
+            v1=PatchMerging2D,
+            v2=self._make_down_sample,
+            v3=self._make_down_sample_v3,
             none=(lambda *_, **_k: None),
         ).get(downsample_version, None)
 
@@ -656,9 +961,9 @@ class SCA_SSM(nn.Module):
                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
                 use_checkpoint=use_checkpoint,
                 norm_layer=norm_layer,
-                downsample=downsample,                  # 有三个版本的下采样
+                downsample=downsample,                  # Three versions of downsampling
                 channel_first=self.channel_first,
-                # =================
+                # =========================
                 ssm_d_state=ssm_d_state,
                 ssm_ratio=ssm_ratio,
                 ssm_dt_rank=ssm_dt_rank,
@@ -668,19 +973,19 @@ class SCA_SSM(nn.Module):
                 ssm_drop_rate=ssm_drop_rate,
                 ssm_init=ssm_init,
                 forward_type=forward_type,
-                # =================
+                # =========================
                 mlp_ratio=mlp_ratio,
                 mlp_act_layer=mlp_act_layer,
                 mlp_drop_rate=mlp_drop_rate,
                 gmlp=gmlp,
-                # =================
+                # =========================
                 _SS2D=_SS2D,
                 depth = depth[i_layer],
             ))
 
         # self.classifier = nn.Sequential(OrderedDict(
         #     norm=norm_layer(self.num_features),  # B,H,W,C
-        #     permute=(Permute(0, 3, 1, 2) if not self.channel_first else nn.Identity()),
+        #     permute=Permute(0, 3, 1, 2) if not self.channel_first else nn.Identity(),
         #     avgpool=nn.AdaptiveAvgPool2d(1),
         #     flatten=nn.Flatten(1),
         #     head=nn.Linear(self.num_features, num_classes),
@@ -697,7 +1002,7 @@ class SCA_SSM(nn.Module):
 
     def _init_weights(self, m: nn.Module):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -709,33 +1014,32 @@ class SCA_SSM(nn.Module):
     def no_weight_decay(self):
         return {"pos_embed"}
 
-    # used in building optimizer
     @torch.jit.ignore
     def no_weight_decay_keywords(self):
         return {}
 
     @staticmethod
     def _make_patch_embed(in_chans=3, embed_dim=96, patch_size=4, patch_norm=True, norm_layer=nn.LayerNorm,
-                          channel_first=False):
+                        channel_first=False):
         # if channel first, then Norm and Output are both channel_first
         return nn.Sequential(
-            nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size, bias=True),
+            nn.Conv2d(in_chans, embed_dim, kernel_size=1),
             (nn.Identity() if channel_first else Permute(0, 2, 3, 1)),
             (norm_layer(embed_dim) if patch_norm else nn.Identity()),
         )
 
     @staticmethod
     def _make_patch_embed_v2(in_chans=3, embed_dim=96, patch_size=4, patch_norm=True, norm_layer=nn.LayerNorm,
-                             channel_first=False):
+                        channel_first=False):
         # if channel first, then Norm and Output are both channel_first
         stride = patch_size // 2
         kernel_size = stride + 1
         padding = 1
         return nn.Sequential(
             nn.Conv2d(in_chans, embed_dim // 2, kernel_size=kernel_size, stride=stride, padding=padding),
-            (nn.Identity() if (channel_first or (not patch_norm)) else Permute(0, 2, 3, 1)),
+            (nn.Identity() if channel_first or (not patch_norm)) else Permute(0, 2, 3, 1)),
             (norm_layer(embed_dim // 2) if patch_norm else nn.Identity()),
-            (nn.Identity() if (channel_first or (not patch_norm)) else Permute(0, 3, 1, 2)),
+            (nn.Identity() if channel_first or (not patch_norm)) else Permute(0, 3, 1, 2)),
             nn.GELU(),
             nn.Conv2d(embed_dim // 2, embed_dim, kernel_size=kernel_size, stride=stride, padding=padding),
             (nn.Identity() if channel_first else Permute(0, 2, 3, 1)),
@@ -743,7 +1047,7 @@ class SCA_SSM(nn.Module):
         )
 
     @staticmethod
-    def _make_downsample(dim=96, out_dim=192, norm_layer=nn.LayerNorm, channel_first=False):
+    def _make_down_sample(dim=96, out_dim=192, norm_layer=nn.LayerNorm, channel_first=False):
         # if channel first, then Norm and Output are both channel_first
         return nn.Sequential(
             (nn.Identity() if channel_first else Permute(0, 3, 1, 2)),
@@ -753,7 +1057,7 @@ class SCA_SSM(nn.Module):
         )
 
     @staticmethod
-    def _make_downsample_v3(dim=96, out_dim=192, norm_layer=nn.LayerNorm, channel_first=False):
+    def _make_down_sample_v3(dim=96, out_dim=192, norm_layer=nn.LayerNorm, channel_first=False):
         # if channel first, then Norm and Output are both channel_first
         return nn.Sequential(
             (nn.Identity() if channel_first else Permute(0, 3, 1, 2)),
@@ -771,7 +1075,7 @@ class SCA_SSM(nn.Module):
             norm_layer=nn.LayerNorm,
             downsample=nn.Identity(),
             channel_first=False,
-            # ===========================
+            # =========================
             ssm_d_state=16,
             ssm_ratio=2.0,
             ssm_dt_rank="auto",
@@ -781,14 +1085,14 @@ class SCA_SSM(nn.Module):
             ssm_drop_rate=0.0,
             ssm_init="v0",
             forward_type="v2",
-            # ===========================
+            # =========================
             mlp_ratio=4.0,
             mlp_act_layer=nn.GELU,
             mlp_drop_rate=0.0,
             gmlp=False,
-            # ===========================
+            # =========================
             _SS2D=SS2D,
-            depth_ = 1,
+            depth=1,
             **kwargs,
     ):
         # if channel first, then Norm and Output are both channel_first
@@ -828,13 +1132,13 @@ class SCA_SSM(nn.Module):
         # x = self.patch_embed(x)
         x = rearrange(x, 'b c h w -> b h w c')
         if self.pos_embed is not None:
-            pos_embed = self.pos_embed.permute(0, 2, 3, 1) if not self.channel_first else self.pos_embed
+            pos_embed = self.pos_embed.permute(0, 2, 3, 1) if self.channel_first else self.pos_embed
             x = x + pos_embed
-        ''' 堆叠模块 '''
+        ''' Stack modules '''
         x_list = []
         for layer in self.layers:
-            x_list.append(rearrange(x, 'b h w c ->  b c h w'))
+            x_list.append(rearrange(x, 'b h w c -> b c h w'))
             x = layer(x)
 
-        x = rearrange(x, 'b h w c ->  b c h w')
+        x = rearrange(x, 'b h w c -> b c h w')
         return x, x_list
