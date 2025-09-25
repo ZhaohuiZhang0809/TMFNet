@@ -1,3 +1,3 @@
-# TMFNet: A Text-assisted Multi-Modal Fusion Network for Retinal OCT Angiography Vessel Segmentation
+# TMFNet: Text-assisted Multi-Modal Fusion Network for Diabetic Retinopathy Segmentation
 
 The complete code will be publicly available soon.
