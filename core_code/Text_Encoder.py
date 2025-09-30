@@ -7,7 +7,7 @@ class Text_Encoder(nn.Module):
     def __init__(
             self,
             version=r'/mnt/PyCode/zzh/LMFNet/models/clip-vit-large-patch14',  # Path to the pre-trained model
-            max_length=777,  # Maximum length of input text
+            max_length=77,  # Maximum length of input text
             freeze=False,  # Whether to freeze the model weights
             output_dim=384,  # Dimension of the output features
             load_pretrained=True,  # Whether to load pre-trained weights
