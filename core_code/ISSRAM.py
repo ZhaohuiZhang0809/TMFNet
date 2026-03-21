@@ -145,10 +145,4 @@ class FCGAM(nn.Module):
         # Cross-modal fusion
         img_x = rearrange(img_x, "b c h w -> b (h w) c")  # B, L, C
         
-        # Compute text-to-image attention
-        text2img = self.CrossAttention2(img_x, text_x)
-
-        # Reshape back to image dimensions
-        text2img = rearrange(text2img, " b (h w) c -> b c h w", h=H, w=W)
-
         return text2img
